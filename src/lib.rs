@@ -15,7 +15,8 @@ enum Message<T> {
 
 pub struct ThreadPool<T> {
     cap: u32,
-    current_worker: i32,
+    current_worker: u32,
+    total_request: u32,
     txs: Vec<Sender<Message<T>>>,
     rxs: Vec<Arc<Mutex<Receiver<Message<T>>>>>,
 }
@@ -35,6 +36,7 @@ where
         ThreadPool {
             cap: size as u32,
             current_worker: 0,
+            total_request: 0,
             txs,
             rxs,
         }
@@ -50,6 +52,7 @@ where
                     match msg {
                         Message::Exit => {
                             println!("Received exit signal.");
+                            return;
                         }
                         Message::Job(f) => {
                             println!("Worker {} received new request.", worker_id);
@@ -60,11 +63,22 @@ where
             });
         }
     }
-    pub fn execute(&mut self, f: T) {
+    pub fn execute(&mut self, f: T) -> u32 {
         self.current_worker += 1;
-        if self.current_worker == self.cap as i32 {
+        self.total_request += 1;
+        if self.current_worker == self.cap as u32 {
             self.current_worker = 0;
         };
-        self.txs[self.current_worker as usize].send(Message::Job(f));
+        self.txs[self.current_worker as usize]
+            .send(Message::Job(f))
+            .unwrap();
+
+        self.total_request
+    }
+
+    pub fn stop(&self) {
+        for i in 0..self.cap {
+            self.txs[i as usize].send(Message::Exit).unwrap();
+        }
     }
 }

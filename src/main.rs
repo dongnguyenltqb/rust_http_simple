@@ -22,6 +22,9 @@ fn main() {
     println!("Server is listenning on {}", addr);
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        poll.execute(Box::new(|| handle_connection(stream)));
+        let total_request = poll.execute(Box::new(|| handle_connection(stream)));
+        if total_request == 1000 {
+            return;
+        }
     }
 }
